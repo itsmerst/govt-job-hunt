@@ -1,0 +1,575 @@
+{
+  "last_updated": "2026-09-04T00:00:00",
+  "api_sources": {
+    "ssc": "https://ssc.nic.in",
+    "upsc": "https://upsc.gov.in",
+    "ibps": "https://www.ibps.in",
+    "railways": "https://www.rrbapply.gov.in",
+    "gate": "https://gate.iitkgp.ac.in",
+    "afcat": "https://afcat.cdac.in"
+  },
+  "jobs": [
+    {
+      "id": 1,
+      "name": "SSC Combined Graduate Level Exam (SSC CGL)",
+      "organization": "Staff Selection Commission (SSC)",
+      "requires_gate": false,
+      "positions": [
+        "Tier-I, Tier-II, Tier-III Examination",
+        "Various Central Government Posts"
+      ],
+      "eligibility": {
+        "qualification": "Bachelor's Degree from recognized university",
+        "class_requirement": "Any class (First class with distinction preferred)",
+        "age": "18-32 years",
+        "nationality": "Indian citizen"
+      },
+      "salary": "₹5,200-20,200 per month + benefits",
+      "posts": "Assistant, Junior Accountant, Income Tax Inspector, etc.",
+      "application_fee": "₹100 (SC/ST/PwBD: Exempt)",
+      "notification_link": "https://ssc.nic.in",
+      "notification_date": "July 19, 2026",
+      "application_deadline": "September 17, 2026",
+      "exam_date": "October 2026",
+      "steps": [
+        "Visit https://ssc.nic.in official website",
+        "Click on 'Notifications' section",
+        "Download SSC CGL notification PDF",
+        "Register on SSC portal using email/phone",
+        "Fill application form with personal details",
+        "Upload passport size photo (200x250 px) & signature",
+        "Upload scanned documents (Birth certificate, mark sheets, ID proof)",
+        "Pay examination fee (₹100) via online banking/card",
+        "Get acknowledgement number - save for future reference",
+        "Prepare for online exam (Tier-I, Tier-II, Tier-III)"
+      ],
+      "documents": [
+        "10th & 12th mark sheets",
+        "Bachelor's degree certificate",
+        "Class achievement certificates (First Class with Distinction)",
+        "Passport/Aadhar/Pan Card",
+        "Passport size colored photo",
+        "Signature on white paper"
+      ],
+      "exam_pattern": "4 Tier exam system: Tier-I (Online), Tier-II (Online), Tier-III (Descriptive), Tier-IV (Skill)",
+      "deadline_info": "90 days from notification",
+      "eligibility_filters": {
+        "gate_required": false,
+        "max_qualification_level": "bachelor",
+        "branches": [
+          "general"
+        ],
+        "min_age": 18,
+        "max_age": 32
+      }
+    },
+    {
+      "id": 2,
+      "name": "UPSC Civil Services Examination (IAS/IPS/IFS)",
+      "organization": "Union Public Service Commission (UPSC)",
+      "requires_gate": false,
+      "positions": [
+        "IAS Officer",
+        "IPS Officer",
+        "IFS Officer",
+        "Other Central services"
+      ],
+      "eligibility": {
+        "qualification": "Bachelor's Degree from recognized university",
+        "class_requirement": "Any class",
+        "age": "21-32 years (with relaxation for SC/ST/OBC)",
+        "nationality": "Indian citizen"
+      },
+      "salary": "₹56,100-177,500 per month + perks",
+      "posts": "IAS, IPS, IFS, All India Services",
+      "application_fee": "₹100 (SC/ST/PwBD: Exempt)",
+      "notification_link": "https://upsc.gov.in",
+      "notification_date": "December 2025",
+      "application_deadline": "January 15, 2026",
+      "exam_date": "May 2026",
+      "steps": [
+        "Visit https://upsc.gov.in official portal",
+        "Click 'Apply Online' → 'Civil Services Exam'",
+        "Create account with email and mobile",
+        "Fill detailed application form (Part-I & II)",
+        "Upload recent photograph & signature (very specific format)",
+        "Upload certificates (Birth, Degree, Caste, Domicile if applicable)",
+        "Pay examination fee (₹100) online",
+        "Get registration number - Important for exam entry",
+        "Prepare for Prelims (GS & CSAT), Mains, Interview",
+        "Study NCERT books and current affairs"
+      ],
+      "documents": [
+        "Birth certificate",
+        "10th, 12th, and Bachelor's degree certificates",
+        "Caste certificate (if applicable)",
+        "Domicile certificate (if applicable)",
+        "Passport/Aadhar/Driving License",
+        "Character certificate from school/college",
+        "Medical certificate (if claiming relaxation)",
+        "Passport size colored photo (minimum 3 copies)"
+      ],
+      "exam_pattern": "3 stages: Preliminary (399 marks), Main (1750 marks), Interview (275 marks)",
+      "deadline_info": "30 days from notification",
+      "eligibility_filters": {
+        "gate_required": false,
+        "max_qualification_level": "bachelor",
+        "branches": [
+          "general"
+        ],
+        "min_age": 21,
+        "max_age": 32
+      }
+    },
+    {
+      "id": 3,
+      "name": "SSC CHSL (Combined Higher Secondary Level)",
+      "organization": "Staff Selection Commission (SSC)",
+      "requires_gate": false,
+      "positions": [
+        "Postal Assistant",
+        "Sorting Assistant",
+        "Lower Division Clerk"
+      ],
+      "eligibility": {
+        "qualification": "12th Pass (Higher Secondary)",
+        "class_requirement": "First class with distinction preferred",
+        "age": "18-27 years",
+        "nationality": "Indian citizen"
+      },
+      "salary": "₹5,200-20,200 per month + benefits",
+      "posts": "Postal Assistant, Sorting Assistant, LDC, Court Clerk",
+      "application_fee": "₹100 (SC/ST/PwBD: Exempt)",
+      "notification_link": "https://ssc.nic.in",
+      "steps": [
+        "Go to https://ssc.nic.in website",
+        "Find CHSL notification in Notifications section",
+        "Register/Login with email ID",
+        "Fill application form with all required details",
+        "Upload photograph (200x250 px, colored) and signature",
+        "Upload 10th & 12th mark sheets, admit card",
+        "Upload ID proof (Aadhar/PAN/Passport)",
+        "Pay examination fee ₹100 online",
+        "Save acknowledgement slip",
+        "Study general awareness, reasoning, quantitative aptitude"
+      ],
+      "documents": [
+        "10th & 12th mark sheets/certificates",
+        "Character certificate",
+        "Aadhar/PAN/Passport",
+        "Passport size colored photo",
+        "Signature on white paper"
+      ],
+      "exam_pattern": "Tier-I (Online): 200 marks, Tier-II (Written): 200 marks, Tier-III (Typing): Speed test",
+      "notification_date": "Usually every 3-4 months",
+      "deadline_info": "Around 30 days from notification",
+      "eligibility_filters": {
+        "gate_required": false,
+        "max_qualification_level": "secondary",
+        "branches": [
+          "general"
+        ],
+        "min_age": 18,
+        "max_age": 27
+      }
+    },
+    {
+      "id": 4,
+      "name": "Bank Probationary Officer (PO) / Clerk Exams",
+      "organization": "Various Public Sector Banks (IBPS, SBI)",
+      "requires_gate": false,
+      "positions": [
+        "Probationary Officer",
+        "Clerk",
+        "Specialist Officer"
+      ],
+      "eligibility": {
+        "qualification": "Bachelor's Degree in any stream",
+        "class_requirement": "First class with distinction preferred",
+        "age": "21-30 years",
+        "nationality": "Indian citizen"
+      },
+      "salary": "₹23,700-42,020 per month (as PO) + perks",
+      "posts": "Probationary Officer, Clerk, Manager",
+      "application_fee": "₹750 (SC/ST/PwBD: ₹100)",
+      "notification_link": "https://www.ibps.in or https://www.sbi.co.in",
+      "steps": [
+        "Visit bank's official website (IBPS.in or SBI.co.in)",
+        "Click on 'Recruitment' section",
+        "Read official notification carefully",
+        "Register on bank's online portal",
+        "Fill application form with personal & educational details",
+        "Upload recent passport size photo & signature",
+        "Upload mark sheets (10th, 12th, Bachelor's)",
+        "Upload ID proof (Aadhar/PAN/Passport)",
+        "Pay application fee online",
+        "Get reference number - keep it safe",
+        "Appear for Online Preliminary Exam",
+        "Clear Mains Exam (if shortlisted)",
+        "Group Discussion & Personal Interview round"
+      ],
+      "documents": [
+        "10th, 12th, and Bachelor's degree certificates",
+        "Class achievement certificates",
+        "Passport/Aadhar/PAN",
+        "Recent colored passport size photo",
+        "Signature sample",
+        "Character certificate from college"
+      ],
+      "exam_pattern": "Preliminary Online (100 marks), Mains Online (200 marks), Interview (50 marks)",
+      "notification_date": "Usually March-April and August-September",
+      "deadline_info": "15-20 days from notification",
+      "eligibility_filters": {
+        "gate_required": false,
+        "max_qualification_level": "bachelor",
+        "branches": [
+          "general"
+        ],
+        "min_age": 21,
+        "max_age": 30
+      }
+    },
+    {
+      "id": 5,
+      "name": "GATE (Graduate Aptitude Test in Engineering)",
+      "organization": "Indian Institute of Technology (IIT)",
+      "requires_gate": true,
+      "positions": [
+        "PSU Jobs",
+        "IIT/NIT Admission",
+        "Research opportunities"
+      ],
+      "eligibility": {
+        "qualification": "Bachelor's in Engineering or equivalent",
+        "class_requirement": "First class with distinction preferred",
+        "age": "No age limit",
+        "nationality": "Indian citizen"
+      },
+      "salary": "₹50,000-1,50,000+ per month (PSU jobs)",
+      "posts": "Engineer, Senior Engineer, Manager (various PSUs)",
+      "application_fee": "₹1,500 (Online), ₹1,700 (Offline)",
+      "notification_link": "https://gate.iitkgp.ac.in",
+      "steps": [
+        "Visit official GATE website (gate.iitkgp.ac.in)",
+        "Register as new user with email ID",
+        "Fill GATE application form with engineering details",
+        "Upload recent colored passport photo (200x200 px)",
+        "Upload valid signature image",
+        "Upload Bachelor's degree certificate",
+        "Upload mark sheets of all semesters",
+        "Select exam paper (related to your engineering branch)",
+        "Choose exam center (online exam)",
+        "Pay registration fee (₹1,500 or ₹1,700)",
+        "Download admit card 1 week before exam",
+        "Appear for online exam (2 hours, 65 questions)"
+      ],
+      "documents": [
+        "10th & 12th certificates",
+        "Bachelor's degree certificate",
+        "Semester mark sheets",
+        "Aadhar/PAN/Passport",
+        "Recent colored passport photo",
+        "Signature on white paper"
+      ],
+      "exam_pattern": "Online exam: 2 hours, 65 questions (MCQ + NAT), General Aptitude (15%) + Subject (70%) + Engineering Math (15%)",
+      "notification_date": "Usually September-October",
+      "deadline_info": "Typically 6 weeks for registration",
+      "eligibility_filters": {
+        "gate_required": true,
+        "max_qualification_level": "bachelor",
+        "branches": [
+          "general"
+        ],
+        "min_age": 0,
+        "max_age": 99
+      }
+    },
+    {
+      "id": 6,
+      "name": "Railway Recruitment Board (RRB) Exams",
+      "organization": "Ministry of Railways - RRB",
+      "requires_gate": false,
+      "positions": [
+        "Technician",
+        "ALP (Assistant Loco Pilot)",
+        "Clerk",
+        "Station Master"
+      ],
+      "eligibility": {
+        "qualification": "ITI/Diploma/Bachelor's degree (varies by post)",
+        "class_requirement": "First class preferred",
+        "age": "18-41 years (relaxation for SC/ST/OBC)",
+        "nationality": "Indian citizen"
+      },
+      "salary": "₹5,200-20,200 per month + railway benefits",
+      "posts": "ALP, Technician, Clerk, Maintainer, Station Master",
+      "application_fee": "₹500 (UR/EWS), ₹250 (SC/ST/OBC), Free (PwBD)",
+      "notification_link": "https://www.rrbapply.gov.in",
+      "steps": [
+        "Visit https://www.rrbapply.gov.in or respective RRB website",
+        "Check your zone/region (based on location)",
+        "Look for latest RRB recruitment notification",
+        "Register on RRB portal with email & mobile",
+        "Fill detailed application form",
+        "Upload colored passport photo (35×45 mm)",
+        "Upload signature image (file size: 10-20 KB)",
+        "Upload relevant certificates (Diploma/Degree/ITI)",
+        "Upload mark sheets and character certificate",
+        "Upload caste certificate (if applicable)",
+        "Pay application fee online",
+        "Get registration number",
+        "Appear for online exam (Tier-I)",
+        "Proceed to Tier-II (if shortlisted)"
+      ],
+      "documents": [
+        "10th & 12th mark sheets",
+        "ITI/Diploma/Degree certificate",
+        "Birth certificate",
+        "Aadhar/PAN/Passport",
+        "Character certificate",
+        "Caste certificate (if applicable)",
+        "Domicile certificate (if required)",
+        "Colored passport photo (35×45 mm)"
+      ],
+      "exam_pattern": "Tier-I: Online CBT (100 marks), Tier-II: Online exam (100 marks), Skill test/Document verification",
+      "notification_date": "Usually January-March and July-August",
+      "deadline_info": "15-30 days from notification",
+      "eligibility_filters": {
+        "gate_required": false,
+        "max_qualification_level": "bachelor",
+        "branches": [
+          "general"
+        ],
+        "min_age": 18,
+        "max_age": 41
+      }
+    },
+    {
+      "id": 7,
+      "name": "Defence Services (AFCAT)",
+      "organization": "Indian Air Force - Air Force Common Admission Test",
+      "requires_gate": false,
+      "positions": [
+        "Flying Officer",
+        "Ground Duty Officer"
+      ],
+      "eligibility": {
+        "qualification": "Bachelor's degree in any stream",
+        "class_requirement": "First class with distinction preferred",
+        "age": "20-24 years (relaxation available)",
+        "nationality": "Indian citizen, married females not eligible for flying branch"
+      },
+      "salary": "₹56,100-1,77,500 per month + perks",
+      "posts": "Pilot, Engineer Officer, Administrative Officer",
+      "application_fee": "₹250",
+      "notification_link": "https://afcat.cdac.in",
+      "steps": [
+        "Visit https://afcat.cdac.in official website",
+        "Read AFCAT notification and eligibility criteria",
+        "Register with email and valid mobile number",
+        "Fill detailed application form",
+        "Upload recent colored photograph (3×4 inches)",
+        "Upload signature & finger impression",
+        "Upload degree certificate & mark sheets",
+        "Upload birth certificate or school leaving certificate",
+        "Upload character certificate",
+        "Upload medical fitness certificate (if applicable)",
+        "Pay application fee ₹250",
+        "Appear for online exam (Stage-I)",
+        "Clear Stage-II exam (if shortlisted)",
+        "Appear for interview & SSB"
+      ],
+      "documents": [
+        "Bachelor's degree certificate",
+        "Mark sheets of all years",
+        "Birth certificate",
+        "Character certificate",
+        "Medical certificate (10th standard onwards)",
+        "Aadhar/PAN/Passport",
+        "Passport size colored photographs",
+        "Signature sample"
+      ],
+      "exam_pattern": "Stage-I: Online exam (100 questions, 2 hours), Stage-II: Written exam + Interview, SSB evaluation (5 days)",
+      "notification_date": "Usually May-June and November-December",
+      "deadline_info": "30-40 days from notification",
+      "eligibility_filters": {
+        "gate_required": false,
+        "max_qualification_level": "bachelor",
+        "branches": [
+          "general"
+        ],
+        "min_age": 20,
+        "max_age": 24
+      }
+    },
+    {
+      "id": 8,
+      "name": "IBPS Specialist Officer (SO)",
+      "organization": "Institute of Banking Personnel Selection (IBPS)",
+      "requires_gate": false,
+      "positions": [
+        "IT Officer",
+        "System Officer",
+        "Infrastructure Engineer"
+      ],
+      "eligibility": {
+        "qualification": "Bachelor's Degree in Engineering/IT/CS",
+        "class_requirement": "First class with distinction preferred",
+        "age": "21-30 years",
+        "nationality": "Indian citizen"
+      },
+      "salary": "₹23,700-42,020 per month + perks",
+      "posts": "IT Officer, System Officer, Infrastructure Engineer",
+      "application_fee": "₹750",
+      "notification_link": "https://www.ibps.in",
+      "steps": [
+        "Visit https://www.ibps.in official website",
+        "Navigate to recruitment section",
+        "Find Specialist Officer notification",
+        "Register with email and phone",
+        "Fill application form with technical qualifications",
+        "Upload degree certificate (Engineering/IT/CS)",
+        "Upload mark sheets",
+        "Upload technical certifications (if any)",
+        "Upload photo and signature",
+        "Pay application fee ₹750",
+        "Prepare for online exam (Technical + General)",
+        "Appear for Prelims and Mains"
+      ],
+      "documents": [
+        "Bachelor's degree in Engineering/IT",
+        "All semester mark sheets",
+        "Technical certifications",
+        "Birth certificate",
+        "Aadhar/PAN/Passport",
+        "Passport size photo",
+        "Signature sample"
+      ],
+      "exam_pattern": "Preliminary (100 marks) + Mains (150 marks) + Interview",
+      "notification_date": "Usually July-August",
+      "deadline_info": "30 days from notification",
+      "eligibility_filters": {
+        "gate_required": false,
+        "max_qualification_level": "bachelor",
+        "branches": [
+          "general",
+          "it"
+        ],
+        "min_age": 21,
+        "max_age": 30
+      }
+    },
+    {
+      "id": 9,
+      "name": "National Institutes of Technology (NIT) Postgraduate Programme",
+      "organization": "National Institutes of Technology",
+      "requires_gate": false,
+      "positions": [
+        "M.Tech Programs",
+        "PhD Programs"
+      ],
+      "eligibility": {
+        "qualification": "Bachelor's in Engineering",
+        "class_requirement": "First class with distinction preferred",
+        "age": "No age limit",
+        "nationality": "Indian citizen"
+      },
+      "salary": "Stipend during studies ₹8,000-20,000 per month",
+      "posts": "M.Tech Research Assistant, Teaching Assistant",
+      "application_fee": "₹300 (Online)",
+      "notification_link": "https://www.nits.ac.in",
+      "steps": [
+        "Visit respective NIT website",
+        "Check admission page for M.Tech/PhD programs",
+        "Prepare application with academic details",
+        "Upload Bachelor's degree certificate",
+        "Upload all semester mark sheets",
+        "Upload passport and photo",
+        "Fill application form online",
+        "Pay application fee ₹300",
+        "Appear for written test/interview",
+        "Get admission confirmation"
+      ],
+      "documents": [
+        "Bachelor's degree certificate",
+        "All semester mark sheets",
+        "Birth certificate",
+        "Passport/Aadhar",
+        "Character certificate",
+        "Passport size photo",
+        "Gap certificate (if applicable)"
+      ],
+      "exam_pattern": "Merit-based on academics + Written test/Interview",
+      "notification_date": "Usually January-February",
+      "deadline_info": "45-60 days from notification",
+      "eligibility_filters": {
+        "gate_required": false,
+        "max_qualification_level": "bachelor",
+        "branches": [
+          "general",
+          "it"
+        ],
+        "min_age": 0,
+        "max_age": 99
+      }
+    },
+    {
+      "id": 10,
+      "name": "Patent Office - Examiner Recruitment",
+      "organization": "Intellectual Property Appellate Board",
+      "requires_gate": false,
+      "positions": [
+        "Patent Examiner",
+        "Trade Mark Examiner"
+      ],
+      "eligibility": {
+        "qualification": "Bachelor's in Engineering or Science",
+        "class_requirement": "First class with distinction preferred",
+        "age": "18-30 years",
+        "nationality": "Indian citizen"
+      },
+      "salary": "₹9,300-34,800 per month + perks",
+      "posts": "Patent Examiner, Trade Mark Examiner",
+      "application_fee": "₹100 (SC/ST: Exempt)",
+      "notification_link": "https://www.ipab.nic.in",
+      "steps": [
+        "Visit https://www.ipab.nic.in official website",
+        "Check recruitment notifications section",
+        "Download detailed notification",
+        "Register on application portal",
+        "Fill application with engineering/science background",
+        "Upload Bachelor's degree certificate",
+        "Upload mark sheets (10th-12th and degree)",
+        "Upload proof of passing marks (if first class)",
+        "Upload passport/Aadhar",
+        "Upload photo and signature",
+        "Pay application fee ₹100",
+        "Appear for written examination",
+        "Attend interview if selected"
+      ],
+      "documents": [
+        "Bachelor's degree in Engineering/Science",
+        "10th & 12th mark sheets",
+        "Degree mark sheets",
+        "Class certificates",
+        "Birth certificate",
+        "Character certificate",
+        "ID proof",
+        "Passport size photo"
+      ],
+      "exam_pattern": "Written exam (technical + general knowledge) + Interview",
+      "notification_date": "Irregular - check website regularly",
+      "deadline_info": "30 days from notification",
+      "eligibility_filters": {
+        "gate_required": false,
+        "max_qualification_level": "bachelor",
+        "branches": [
+          "general",
+          "it"
+        ],
+        "min_age": 18,
+        "max_age": 30
+      }
+    }
+  ]
+}

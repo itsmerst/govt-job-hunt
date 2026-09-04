@@ -1,0 +1,21 @@
+# Environment / secrets - NEVER commit your Telegram token
+.env
+
+# Runtime state (which jobs were already notified) - keep private
+telegram_bot_state.json
+
+# Database backups
+jobs_database_backup_*.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+.venv/
+venv/
+env/
+
+# OS
+.DS_Store
+Thumbs.db

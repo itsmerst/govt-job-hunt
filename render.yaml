@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: gov-jobs-telegram-bot
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python telegram_job_bot.py
+    healthCheckPath: /
+    autoDeploy: true
+    envVars:
+      - key: BOT_TOKEN
+        sync: false
+      - key: CHAT_IDS
+        sync: false
+      - key: TZ_OFFSET_MINUTES
+        value: 330
+      - key: DIGEST_TIME
+        value: "08:00"
+      - key: CHECK_INTERVAL_MINUTES
+        value: "10"
+      - key: JOB_DB_PATH
+        value: jobs_database.json
