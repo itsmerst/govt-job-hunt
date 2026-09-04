@@ -4,11 +4,15 @@ import argparse
 import json
 import logging
 import os
+import re
 import sys
 import threading
 from datetime import datetime, timedelta, time as dtime
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
+from urllib.parse import urljoin
+
+import httpx
 
 try:
     from dotenv import load_dotenv
@@ -42,8 +46,11 @@ try:
 except ImportError:
     ZoneInfo = None
 
+from bs4 import BeautifulSoup
+
 DATE_FORMATS = [
     "%Y-%m-%d",
+    "%d/%m/%Y",
     "%d-%m-%Y",
     "%m/%d/%Y",
     "%B %d, %Y",
@@ -86,6 +93,10 @@ def resolve_config():
     cfg["user_age_max"] = get_int("USER_AGE_MAX", 30)
     branches = [b.strip().lower() for b in os.environ.get("USER_BRANCHES", "it").split(",") if b.strip()]
     cfg["user_branches"] = branches or ["it"]
+    cfg["auto_scrape_enabled"] = os.environ.get("AUTO_SCRAPE_ENABLED", "true").strip().lower() in ("1", "true", "yes", "on")
+    cfg["scrape_interval_hours"] = max(1, get_int("SCRAPE_INTERVAL_HOURS", 6))
+    sources = [s.strip() for s in os.environ.get("SCRAPE_SOURCES", "").split(",") if s.strip()]
+    cfg["scrape_sources"] = sources or SCRAPE_DEFAULT_SOURCES
     cfg["port"] = get_int("PORT", 8080)
     return cfg
 
@@ -230,6 +241,153 @@ def digest_text(jobs, cfg):
     return "\n".join(lines)
 
 
+SCRAPE_DEFAULT_SOURCES = ["https://www.sarkariresult.com/latestjob/"]
+SCRAPE_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+
+SCRAPE_INCLUDE_WORDS = [
+    "engineer", "scientist", "technical", "computer", "programmer",
+    "specialist", "officer", "assistant", "clerk", "analyst",
+    "management trainee", "graduate", "junior", "executive",
+]
+SCRAPE_SHORT_INCLUDE = {"je", "ae", "so", "mt"}
+SCRAPE_EXCLUDE_WORDS = [
+    "gate", "correction", "edit form", "option form", "re-open", "reopen",
+    "extended", "vacancy", "admit card", "result", "test",
+    "teacher", "tet", "educator", "professor", "lecturer", "prt", "tgt", "pgt",
+    "library", "librarian", "nurse", "nursing", "pharmacist",
+    "peon", "safai", "sweeper", "mazdoor", "karamchari", "driver", "conductor",
+    "constable", "havildar", "jawan", "soldier", "agniveer", "patwari", "lekhpal",
+    "anganwadi", "medical", "veterinary", "physio", "hospital", "hostel",
+    "cook", "watchman", "gardener", "apprentice",
+    "civil", "mechanical", "electrical", "chemical", "surveyor",
+    "forest", "crop", "sugarcane", "sewak", "mission", "tourism", "sports", "coach",
+    "rejected", "reject", "objection", "re upload", "reupload", "preference",
+    "fee payment", "cancelled", "cancel", "daf", "mains", "prelim", "tentative",
+    "counselling", "police", "court", "geolog", "law", "stipendiary",
+    "waiting", "provisional", "answer key", "cutoff", "merit", "schedule",
+    "fee", "exam date", "revised vacancy",
+]
+
+
+def fetch_page(url):
+    with httpx.Client(
+        timeout=25,
+        follow_redirects=True,
+        headers={"User-Agent": SCRAPE_USER_AGENT},
+    ) as client:
+        response = client.get(url)
+        response.raise_for_status()
+        return response.text
+
+
+def extract_deadline(blob):
+    match = re.search(r"Last\s*[Dd]ate\s*[:\-]?\s*(\d{1,2}[/-]\d{1,2}[/-]\d{4})", blob)
+    if not match:
+        match = re.search(r"(\d{1,2}[/-]\d{1,2}[/-]\d{4})", blob)
+    if not match:
+        return None
+    return match.group(1).replace("-", "/")
+
+
+def parse_entries(html, base_url):
+    soup = BeautifulSoup(html, "html.parser")
+    entries = {}
+    for anchor in soup.find_all("a", href=True):
+        title = anchor.get_text(" ", strip=True).replace("\n", " ")
+        if not title:
+            continue
+        parent = anchor.find_parent() or anchor
+        blob = parent.get_text(" ", strip=True)
+        deadline = extract_deadline(blob)
+        if not deadline:
+            deadline = extract_deadline(title)
+        href = urljoin(base_url, anchor["href"])
+        if href not in entries:
+            entries[href] = {"title": title, "deadline": deadline, "href": href}
+    return entries
+
+
+def _has_include(title):
+    t = title.lower()
+    for word in SCRAPE_INCLUDE_WORDS:
+        if word in t:
+            return True
+    for word in SCRAPE_SHORT_INCLUDE:
+        if re.search(r"(?<![a-z0-9]){}(?![a-z0-9])".format(re.escape(word)), t):
+            return True
+    return False
+
+
+def _has_exclude(title):
+    t = title.lower()
+    for word in SCRAPE_EXCLUDE_WORDS:
+        if word in t:
+            return True
+    return False
+
+
+def filter_candidate(entry):
+    title = entry.get("title") or ""
+    if not entry.get("deadline") or not parse_date(entry["deadline"]):
+        return False
+    if _has_exclude(title):
+        return False
+    if not _has_include(title):
+        return False
+    return True
+
+
+def candidate_card(entry):
+    days_txt = ""
+    date_obj = parse_date(entry.get("deadline"))
+    if date_obj:
+        days = (date_obj - datetime.now()).days
+        if days >= 0:
+            days_txt = "{} days left".format(days) if days != 1 else "1 day left"
+    deadline_line = "\U0001F5D3 Last date: {}".format(entry.get("deadline") or "Not specified")
+    if days_txt:
+        deadline_line = "{} ({})".format(deadline_line, days_txt)
+    return "\n".join([
+        "\U0001F195 NEW job candidate found",
+        "",
+        "\U0001F3AF {}".format(entry["title"]),
+        deadline_line,
+        "\U0001F517 {}".format(entry["href"]),
+        "",
+        "\u26A0\uFE0F Auto-filtered by title (B.E.-IT / graduate, no GATE). Verify age & eligibility on the notification before applying.",
+    ])
+
+
+def collect_candidates(cfg):
+    candidates = []
+    for source in cfg["scrape_sources"]:
+        try:
+            html = fetch_page(source)
+            entries = parse_entries(html, source)
+            for entry in entries.values():
+                date_obj = parse_date(entry.get("deadline"))
+                if date_obj and date_obj < datetime.now():
+                    continue
+                if filter_candidate(entry):
+                    candidates.append(entry)
+        except Exception as exc:
+            logging.warning("Scrape failed for %s: %s", source, exc)
+    return candidates
+
+
+def prune_scraped(state):
+    scraped = state.data.get("scraped", {})
+    expired = [
+        key for key, val in scraped.items()
+        if parse_date(val.get("deadline")) and parse_date(val.get("deadline")) < datetime.now()
+    ]
+    for key in expired:
+        scraped.pop(key, None)
+    if len(scraped) > 1000:
+        for key in list(scraped)[: len(scraped) - 1000]:
+            scraped.pop(key, None)
+
+
 class JobState:
     def __init__(self, path):
         self.path = Path(path)
@@ -315,6 +473,30 @@ async def daily_digest(context):
         return
     await send_to_all(context, digest_text(matches, cfg))
     logging.info("Daily digest sent: %d matching jobs", len(matches))
+
+
+async def scrape_and_push(context, reply=None):
+    cfg = context.bot_data["config"]
+    bot_state = context.bot_data["state"]
+    candidates = collect_candidates(cfg)
+    pushed = 0
+    for entry in candidates:
+        seen = bot_state.data.setdefault("scraped", {})
+        if entry["href"] in seen:
+            continue
+        sent = await send_to_all(context, candidate_card(entry))
+        if sent > 0:
+            seen[entry["href"]] = {
+                "title": entry["title"],
+                "deadline": entry.get("deadline"),
+                "sent_at": datetime.now().isoformat(timespec="seconds"),
+            }
+            bot_state.save()
+            pushed += 1
+    prune_scraped(bot_state)
+    if reply:
+        await reply("Scrape complete: {} candidates found, {} new pushed.".format(len(candidates), pushed))
+    logging.info("Scrape: %d candidates found, %d new pushed", len(candidates), pushed)
 
 
 def is_authorized(update, cfg):
@@ -409,6 +591,15 @@ async def cmd_status(update, context):
     await update.message.reply_text(text)
 
 
+async def cmd_scrape(update, context):
+    cfg = context.bot_data["config"]
+    if not is_authorized(update, cfg):
+        await update.message.reply_text("Not authorized.")
+        return
+    await update.message.reply_text("Running scrape now...")
+    await scrape_and_push(context, reply=update.message.reply_text)
+
+
 class HealthHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -470,6 +661,14 @@ def schedule_jobs(app, cfg):
         first=10,
         name="new_jobs_check",
     )
+    if cfg["auto_scrape_enabled"]:
+        app.job_queue.run_repeating(
+            scrape_and_push,
+            interval=timedelta(hours=cfg["scrape_interval_hours"]),
+            first=45,
+            name="scrape",
+        )
+        logging.info("Auto-scrape enabled: every %d hours", cfg["scrape_interval_hours"])
     hh, mm = cfg["digest_time"]
     if cfg["_effective_tz"]:
         app.job_queue.run_daily(daily_digest, time=dtime(hour=hh, minute=mm), name="daily_digest")
@@ -498,15 +697,29 @@ def check_mode(cfg):
             print("  - {}".format(job.get("name")))
 
 
+def run_scrape_check(cfg):
+    print("Sources: {}".format(cfg["scrape_sources"]))
+    candidates = collect_candidates(cfg)
+    print("Candidates found after title filter: {}\n".format(len(candidates)))
+    for entry in candidates:
+        print(candidate_card(entry))
+        print("-" * 50)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true", help="Print matching jobs locally and exit (no Telegram needed)")
+    parser.add_argument("--scrape-check", action="store_true", help="Fetch and print auto-scrape candidates locally and exit")
     args = parser.parse_args()
 
     cfg = resolve_config()
 
     if args.check:
         check_mode(cfg)
+        return
+
+    if args.scrape_check:
+        run_scrape_check(cfg)
         return
 
     print("=" * 60)
@@ -524,6 +737,7 @@ def main():
     app.add_handler(CommandHandler("jobs", cmd_jobs))
     app.add_handler(CommandHandler("refresh", cmd_refresh))
     app.add_handler(CommandHandler("status", cmd_status))
+    app.add_handler(CommandHandler("scrape", cmd_scrape))
 
     schedule_jobs(app, cfg)
     start_health_server(cfg["port"])
