@@ -7,6 +7,7 @@ import os
 import re
 import sys
 import threading
+import time
 from datetime import datetime, timedelta, time as dtime
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
@@ -27,12 +28,14 @@ if sys.platform == "win32":
     if hasattr(sys.stderr, "reconfigure"):
         sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
-from telegram import Update
+from telegram import BotCommand, ReplyKeyboardMarkup, Update
 from telegram.error import TelegramError
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
     ContextTypes,
+    MessageHandler,
+    filters,
 )
 
 try:
@@ -266,6 +269,12 @@ SCRAPE_EXCLUDE_WORDS = [
     "counselling", "police", "court", "geolog", "law", "stipendiary",
     "waiting", "provisional", "answer key", "cutoff", "merit", "schedule",
     "fee", "exam date", "revised vacancy",
+    "geo", "livestock", "agriculture", "extension officer", "horticulture",
+    "dairy", "fishery", "fisheries", "food", "animal", "cooperative", "sugar",
+    "mining", "metallurgy", "petroleum", "textile", "biotech", "biotechnology",
+    "pharma", "physical", "health", "staff", "zoology", "botany", "chemistry",
+    "physics", "village", "gram panchayat", "pearson", "hindi", "sanskrit",
+    "history", "geography", "sociology", "economics",
 ]
 
 
@@ -278,6 +287,38 @@ def fetch_page(url):
         response = client.get(url)
         response.raise_for_status()
         return response.text
+
+
+def fetch_candidate_details(url):
+    html = fetch_page(url)
+    text = re.sub(r"<[^>]+>", " ", html)
+    text = re.sub(r"\s+", " ", text)
+    details = {"age_min": None, "age_max": None, "fee": None}
+    match = re.search(r"Minimum\s*Age\s*:\s*(NA|\d+)\s*Years?", text, re.IGNORECASE)
+    if match:
+        value = match.group(1)
+        details["age_min"] = None if value.upper() == "NA" else int(value)
+    match = re.search(r"Maximum\s*Age\s*:\s*(NA|\d+)\s*Years?", text, re.IGNORECASE)
+    if match:
+        value = match.group(1)
+        details["age_max"] = None if value.upper() == "NA" else int(value)
+    if details["age_min"] is None or details["age_max"] is None:
+        match = re.search(
+            r"Age\s*Limit[^0-9]*?(\d{1,2})[^0-9]{1,5}(\d{1,2})\s*Years?",
+            text,
+            re.IGNORECASE,
+        )
+        if match:
+            details["age_min"] = int(match.group(1))
+            details["age_max"] = int(match.group(2))
+    match = re.search(r"General[^0-9]*?\bOBC[^0-9]*?([\d,]+)\s*/-", text, re.IGNORECASE)
+    if match:
+        details["fee"] = "₹{} (General/UR)".format(match.group(1))
+    else:
+        match = re.search(r"Application\s*Fee\s*[:.].{0,200}?([\d,]+)\s*/-", text, re.IGNORECASE)
+        if match:
+            details["fee"] = "₹{}".format(match.group(1))
+    return details
 
 
 def extract_deadline(blob):
@@ -347,15 +388,28 @@ def candidate_card(entry):
     deadline_line = "\U0001F5D3 Last date: {}".format(entry.get("deadline") or "Not specified")
     if days_txt:
         deadline_line = "{} ({})".format(deadline_line, days_txt)
-    return "\n".join([
-        "\U0001F195 NEW job candidate found",
-        "",
-        "\U0001F3AF {}".format(entry["title"]),
-        deadline_line,
-        "\U0001F517 {}".format(entry["href"]),
-        "",
-        "\u26A0\uFE0F Auto-filtered by title (B.E.-IT / graduate, no GATE). Verify age & eligibility on the notification before applying.",
-    ])
+
+    details = entry.get("details") or {}
+    lines = ["\U0001F195 NEW job candidate found", "", "\U0001F3AF {}".format(entry["title"])]
+
+    age_min, age_max = details.get("age_min"), details.get("age_max")
+    if age_min is not None and age_max is not None:
+        lines.append("\u2705 Age limit {}-{} yrs \u2014 fits 25-30".format(age_min, age_max))
+    elif age_max is not None:
+        lines.append("\u2705 Age up to {} yrs (min not stated) \u2014 you fit".format(age_max))
+    elif age_min is not None:
+        lines.append("\u2705 Age from {} yrs (max not stated) \u2014 you fit".format(age_min))
+    else:
+        lines.append("\u26A0\uFE0F Age not found on page \u2014 verify before applying")
+
+    if details.get("fee"):
+        lines.append("\U0001F9FE Application fee: {}".format(details["fee"]))
+
+    lines.append(deadline_line)
+    lines.append("\U0001F517 {}".format(entry["href"]))
+    lines.append("")
+    lines.append("\u26A0\uFE0F Confirm eligibility on the official notification before applying.")
+    return "\n".join(lines)
 
 
 def collect_candidates(cfg):
@@ -364,15 +418,40 @@ def collect_candidates(cfg):
         try:
             html = fetch_page(source)
             entries = parse_entries(html, source)
-            for entry in entries.values():
-                date_obj = parse_date(entry.get("deadline"))
-                if date_obj and date_obj < datetime.now():
-                    continue
-                if filter_candidate(entry):
-                    candidates.append(entry)
         except Exception as exc:
             logging.warning("Scrape failed for %s: %s", source, exc)
+            continue
+        for entry in entries.values():
+            date_obj = parse_date(entry.get("deadline"))
+            if date_obj and date_obj < datetime.now():
+                continue
+            if not filter_candidate(entry):
+                continue
+            details = {}
+            try:
+                details = fetch_candidate_details(entry["href"])
+                time.sleep(0.4)
+            except Exception as exc:
+                logging.warning("Detail fetch failed for %s: %s", entry["href"], exc)
+            entry["details"] = details
+            if self_age_conflict(details, cfg):
+                logging.info(
+                    "Skipped age-ineligible: %s (age %s-%s yrs)",
+                    entry["title"], details.get("age_min"), details.get("age_max"),
+                )
+                continue
+            candidates.append(entry)
     return candidates
+
+
+def self_age_conflict(details, cfg):
+    age_min = details.get("age_min")
+    age_max = details.get("age_max")
+    if age_max is not None and age_max < cfg["user_age_min"]:
+        return True
+    if age_min is not None and age_min > cfg["user_age_max"]:
+        return True
+    return False
 
 
 def prune_scraped(state):
@@ -506,6 +585,23 @@ def is_authorized(update, cfg):
     return chat in cfg["chat_ids"]
 
 
+MENU_LABELS = {
+    "📋 Jobs": "cmd_jobs",
+    "🔄 Refresh": "cmd_refresh",
+    "🆕 Scrape": "cmd_scrape",
+    "🛠️ Status": "cmd_status",
+    "❓ Help": "cmd_help",
+}
+
+
+def menu_keyboard():
+    buttons = list(MENU_LABELS)
+    keyboard = [buttons[i:i + 2] for i in range(0, len(buttons), 2)]
+    return ReplyKeyboardMarkup(
+        keyboard=keyboard, resize_keyboard=True, one_time_keyboard=False
+    )
+
+
 async def cmd_start(update, context):
     cfg = context.bot_data["config"]
     chat = update.effective_chat.id
@@ -524,16 +620,51 @@ async def cmd_start(update, context):
         "\u2022 No GATE score required\n"
         "\u2022 Age: {}-{} years\n\n"
         "Currently matched: {} jobs\n\n"
-        "Commands:\n"
-        "/jobs \u2014 list matching jobs now\n"
-        "/refresh \u2014 check for new jobs immediately\n"
-        "/status \u2014 bot settings\n\n"
+        "Use the buttons below or type:\n"
+        "/jobs \u2014 list matching jobs\n"
+        "/refresh \u2014 check for new jobs now\n"
+        "/scrape \u2014 run auto-scan now\n"
+        "/status \u2014 bot settings\n"
+        "/help \u2014 how to use\n\n"
         "Your chat ID: {}\n"
         "Set CHAT_IDS in the bot environment to lock access to this ID.".format(
             cfg["user_age_min"], cfg["user_age_max"], len(matches), chat
         )
     )
-    await update.message.reply_text(text)
+    await update.message.reply_text(text, reply_markup=menu_keyboard())
+
+
+async def cmd_help(update, context):
+    cfg = context.bot_data["config"]
+    if not is_authorized(update, cfg):
+        await update.message.reply_text("Not authorized.")
+        return
+    text = (
+        "\U0001F4A1 Government Jobs Bot \u2014 how to use\n\n"
+        "\U0001F4CC Buttons menu (below):\n"
+        "\U0001F4CB Jobs \u2014 matching curated jobs now\n"
+        "\U0001F504 Refresh \u2014 check for new curated jobs\n"
+        "\U0001F195 Scrape \u2014 scan the web for new candidates\n"
+        "\U0001F6E0\uFE0F Status \u2014 bot settings\n\n"
+        "\U0001F4DD Commands:\n"
+        "/jobs  /refresh  /scrape  /status  /help\n\n"
+        "Your profile: B.E.-IT or any graduate, no GATE, age {}-{}. "
+        "New matching jobs are pushed automatically (no need to check).".format(
+            cfg["user_age_min"], cfg["user_age_max"]
+        )
+    )
+    await update.message.reply_text(text, reply_markup=menu_keyboard())
+
+
+async def handle_menu(update, context):
+    cfg = context.bot_data["config"]
+    if not is_authorized(update, cfg):
+        await update.message.reply_text("Not authorized.")
+        return
+    command = MENU_LABELS.get(update.message.text)
+    if not command:
+        return
+    await HANDLERS[command](update, context)
 
 
 async def cmd_jobs(update, context):
@@ -600,6 +731,16 @@ async def cmd_scrape(update, context):
     await scrape_and_push(context, reply=update.message.reply_text)
 
 
+HANDLERS = {
+    "cmd_start": cmd_start,
+    "cmd_jobs": cmd_jobs,
+    "cmd_refresh": cmd_refresh,
+    "cmd_status": cmd_status,
+    "cmd_scrape": cmd_scrape,
+    "cmd_help": cmd_help,
+}
+
+
 class HealthHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -622,12 +763,24 @@ def digest_utc_time(hh, mm, offset_minutes):
     return total // 60, total % 60
 
 
+async def post_init(application):
+    await application.bot.set_my_commands([
+        BotCommand("start", "Show menu"),
+        BotCommand("jobs", "List matching jobs"),
+        BotCommand("refresh", "Check for new curated jobs"),
+        BotCommand("scrape", "Scan web for new candidates"),
+        BotCommand("status", "Bot settings"),
+        BotCommand("help", "How to use"),
+    ])
+
+
 def build_app(cfg):
     if not cfg["bot_token"]:
         logging.error("BOT_TOKEN is required. Copy .env.example to .env and fill it in.")
         raise SystemExit(1)
 
     builder = ApplicationBuilder().token(cfg["bot_token"])
+    builder = builder.post_init(post_init)
     effective_tz = None
     if cfg["tz_name"]:
         zone = None
@@ -738,6 +891,8 @@ def main():
     app.add_handler(CommandHandler("refresh", cmd_refresh))
     app.add_handler(CommandHandler("status", cmd_status))
     app.add_handler(CommandHandler("scrape", cmd_scrape))
+    app.add_handler(CommandHandler("help", cmd_help))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_menu))
 
     schedule_jobs(app, cfg)
     start_health_server(cfg["port"])
