@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import argparse
+import asyncio
 import json
 import logging
 import os
@@ -90,6 +91,12 @@ def resolve_config():
         cfg["digest_time"] = (int(hh), int(mm))
     except (ValueError, AttributeError):
         cfg["digest_time"] = (8, 0)
+    reminder = os.environ.get("REMINDER_TIME", "09:00")
+    try:
+        hh, mm = reminder.split(":")
+        cfg["reminder_time"] = (int(hh), int(mm))
+    except (ValueError, AttributeError):
+        cfg["reminder_time"] = (9, 0)
     cfg["tz_name"] = os.environ.get("TZ", "").strip() or None
     cfg["tz_offset_minutes"] = get_int("TZ_OFFSET_MINUTES", 330)
     cfg["user_age_min"] = get_int("USER_AGE_MIN", 25)
@@ -554,6 +561,86 @@ async def daily_digest(context):
     logging.info("Daily digest sent: %d matching jobs", len(matches))
 
 
+REMINDER_LEVELS = [7, 3, 1, 0]
+
+
+def job_reminder_text(job, deadline, days):
+    if days == 0:
+        note = "\u26D4 Today is the LAST DAY to apply!"
+    elif days == 1:
+        note = "\u2705 1 day left \u2014 apply today!"
+    else:
+        note = "\u2705 Apply soon \u2014 {} days left.".format(days)
+    return "\n".join([
+        "\u23F0 DEADLINE REMINDER",
+        "",
+        "\U0001F3AF {}".format(job.get("name")),
+        "\U0001F5D3 Deadline: {} ({})".format(deadline, days),
+        note,
+        "",
+        "\U0001F517 {}".format(job.get("notification_link") or "See official notification"),
+    ])
+
+
+def candidate_reminder_text(title, deadline, days):
+    if days == 0:
+        note = "\u26D4 Today is the LAST DAY to apply!"
+    elif days == 1:
+        note = "\u2705 1 day left \u2014 apply today!"
+    else:
+        note = "\u2705 Apply soon \u2014 {} days left.".format(days)
+    return "\n".join([
+        "\u23F0 DEADLINE REMINDER",
+        "",
+        "\U0001F3AF {}".format(title),
+        "\U0001F5D3 Deadline: {} ({})".format(deadline, days),
+        note,
+        "",
+        "\u26A0\uFE0F Verify eligibility on the official notification before applying.",
+    ])
+
+
+async def deadline_reminders(context):
+    cfg = context.bot_data["config"]
+    bot_state = context.bot_data["state"]
+    pending = []
+    try:
+        jobs = load_jobs(cfg["db_path"])
+    except Exception:
+        jobs = []
+    for job in matching_jobs(jobs, cfg):
+        deadline, days = deadline_parts(job)
+        if days is None or days < 0:
+            continue
+        for level in REMINDER_LEVELS:
+            if days <= level:
+                key = "remind:job:{}:{}".format(job.get("id"), level)
+                if not bot_state.data.get("reminders", {}).get(key):
+                    pending.append((key, job_reminder_text(job, deadline, days)))
+    for href, info in (bot_state.data.get("scraped") or {}).items():
+        deadline = info.get("deadline")
+        days_obj = parse_date(deadline)
+        if not days_obj:
+            continue
+        days = (days_obj - datetime.now()).days
+        if days < 0:
+            continue
+        for level in REMINDER_LEVELS:
+            if days <= level:
+                key = "remind:cand:{}:{}".format(href, level)
+                if not bot_state.data.get("reminders", {}).get(key):
+                    pending.append((key, candidate_reminder_text(info.get("title", "New candidate"), deadline, days)))
+    sent_any = False
+    for key, text in pending:
+        sent = await send_to_all(context, text)
+        if sent > 0:
+            bot_state.data.setdefault("reminders", {})[key] = datetime.now().isoformat(timespec="seconds")
+            sent_any = True
+    if sent_any:
+        bot_state.save()
+    logging.info("Reminders pass: %d due reminders sent", len(pending))
+
+
 async def scrape_and_push(context, reply=None):
     cfg = context.bot_data["config"]
     bot_state = context.bot_data["state"]
@@ -707,6 +794,7 @@ async def cmd_status(update, context):
         "Configured chats: {}\n"
         "Check interval: every {} min\n"
         "Daily digest: {:02d}:{:02d}\n"
+        "Deadline reminders: {:02d}:{:02d}\n"
         "Profile: B.E.-IT / Graduate, {}-{} years, no GATE\n"
         "Jobs already notified: {}".format(
             cfg["db_path"],
@@ -714,6 +802,8 @@ async def cmd_status(update, context):
             cfg["check_interval"],
             cfg["digest_time"][0],
             cfg["digest_time"][1],
+            cfg["reminder_time"][0],
+            cfg["reminder_time"][1],
             cfg["user_age_min"],
             cfg["user_age_max"],
             len(bot_state.data.get("notified", {})),
@@ -764,14 +854,21 @@ def digest_utc_time(hh, mm, offset_minutes):
 
 
 async def post_init(application):
-    await application.bot.set_my_commands([
+    commands = [
         BotCommand("start", "Show menu"),
         BotCommand("jobs", "List matching jobs"),
         BotCommand("refresh", "Check for new curated jobs"),
         BotCommand("scrape", "Scan web for new candidates"),
         BotCommand("status", "Bot settings"),
         BotCommand("help", "How to use"),
-    ])
+    ]
+    for attempt in range(3):
+        try:
+            await application.bot.set_my_commands(commands)
+            return
+        except Exception as exc:
+            logging.warning("set_my_commands attempt %d failed: %s", attempt + 1, exc)
+            await asyncio.sleep(5)
 
 
 def build_app(cfg):
@@ -781,6 +878,7 @@ def build_app(cfg):
 
     builder = ApplicationBuilder().token(cfg["bot_token"])
     builder = builder.post_init(post_init)
+    builder = builder.read_timeout(60).connect_timeout(30).write_timeout(60)
     effective_tz = None
     if cfg["tz_name"]:
         zone = None
@@ -807,6 +905,57 @@ def build_app(cfg):
     return app
 
 
+def add_daily_job(app, cfg, hour, minute, callback, name):
+    if cfg["_effective_tz"]:
+        app.job_queue.run_daily(callback, time=dtime(hour=hour, minute=minute), name=name)
+        if name == "daily_digest":
+            logging.info("Daily digest scheduled at %02d:%02d in configured timezone (%s)", hour, minute, cfg["tz_name"])
+        else:
+            logging.info("Reminders scheduled at %02d:%02d in configured timezone (%s)", hour, minute, cfg["tz_name"])
+    else:
+        uh, um = digest_utc_time(hour, minute, cfg["tz_offset_minutes"])
+        app.job_queue.run_daily(callback, time=dtime(hour=uh, minute=um), name=name)
+        if name == "daily_digest":
+            logging.info(
+                "Daily digest scheduled at %02d:%02d (converted from %02d:%02d by %d min; assumes server UTC)",
+                uh, um, hour, minute, cfg["tz_offset_minutes"],
+            )
+        else:
+            logging.info(
+                "Deadline reminders scheduled at %02d:%02d (converted from %02d:%02d by %d min; assumes server UTC)",
+                uh, um, hour, minute, cfg["tz_offset_minutes"],
+            )
+
+
+async def startup_notice(context):
+    cfg = context.bot_data["config"]
+    bot_state = context.bot_data["state"]
+    try:
+        jobs = load_jobs(cfg["db_path"])
+    except Exception:
+        jobs = []
+    matches = len(matching_jobs(jobs, cfg))
+    candidates = len(bot_state.data.get("scraped", {}))
+    text = (
+        "\U0001F7E2 Bot is online\n\n"
+        "Profile: B.E.-IT / Graduate, no GATE, age {}-{}\n"
+        "Curated matches: {}\n"
+        "Auto-scan candidates known: {}\n"
+        "Daily digest: {:02d}:{:02d} | Deadline reminders: {:02d}:{:02d}\n"
+        "New jobs push automatically \u2014 no need to check in.".format(
+            cfg["user_age_min"],
+            cfg["user_age_max"],
+            matches,
+            candidates,
+            cfg["digest_time"][0],
+            cfg["digest_time"][1],
+            cfg["reminder_time"][0],
+            cfg["reminder_time"][1],
+        )
+    )
+    await send_to_all(context, text)
+
+
 def schedule_jobs(app, cfg):
     app.job_queue.run_repeating(
         check_new_jobs,
@@ -822,17 +971,9 @@ def schedule_jobs(app, cfg):
             name="scrape",
         )
         logging.info("Auto-scrape enabled: every %d hours", cfg["scrape_interval_hours"])
-    hh, mm = cfg["digest_time"]
-    if cfg["_effective_tz"]:
-        app.job_queue.run_daily(daily_digest, time=dtime(hour=hh, minute=mm), name="daily_digest")
-        logging.info("Daily digest scheduled at %02d:%02d in configured timezone (%s)", hh, mm, cfg["tz_name"])
-    else:
-        uh, um = digest_utc_time(hh, mm, cfg["tz_offset_minutes"])
-        app.job_queue.run_daily(daily_digest, time=dtime(hour=uh, minute=um), name="daily_digest")
-        logging.info(
-            "Daily digest scheduled at %02d:%02d (converted from %02d:%02d by %d min; assumes server UTC)",
-            uh, um, hh, mm, cfg["tz_offset_minutes"],
-        )
+    add_daily_job(app, cfg, cfg["digest_time"][0], cfg["digest_time"][1], daily_digest, "daily_digest")
+    add_daily_job(app, cfg, cfg["reminder_time"][0], cfg["reminder_time"][1], deadline_reminders, "deadline_reminders")
+    app.job_queue.run_once(startup_notice, when=5, name="startup_notice")
 
 
 def check_mode(cfg):
