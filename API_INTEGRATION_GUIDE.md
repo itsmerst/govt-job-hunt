@@ -34,6 +34,20 @@ Most Indian government portals don't provide public REST APIs. They use:
 - Email notifications (manual tracking)
 - Mobile apps (official notifications)
 
+### **Render Telegram bot data updates**
+
+The Render service reads curated jobs from `jobs_database.json` in the deployed
+repository. To update that data, edit the JSON, commit and push it to the branch
+connected to the Render service, and confirm that Render deployed that commit.
+The bot's `/status` command reports the database's `last_updated` value, total
+and matching job counts, and the Render commit when available. `/refresh` reports
+the loaded database version and whether new or changed jobs were sent.
+
+The `/scrape` command scans the configured aggregator and sends matching
+candidates to Telegram; it does not add them to `jobs_database.json`. Curated
+job entries should be verified against their official notification before being
+added to the JSON file.
+
 ---
 
 ## 📱 Recommended Solutions

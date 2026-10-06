@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 import argparse
 import asyncio
+import hashlib
 import json
 import logging
 import os
@@ -52,6 +53,8 @@ except ImportError:
 
 from bs4 import BeautifulSoup
 
+APP_DIR = Path(__file__).resolve().parent
+
 DATE_FORMATS = [
     "%Y-%m-%d",
     "%d/%m/%Y",
@@ -82,8 +85,8 @@ def resolve_config():
     cfg["bot_token"] = os.environ.get("BOT_TOKEN", "").strip()
     ids = [x.strip() for x in os.environ.get("CHAT_IDS", "").split(",") if x.strip()]
     cfg["chat_ids"] = [int(x) for x in ids if x.lstrip("-").isdigit()]
-    cfg["db_path"] = os.environ.get("JOB_DB_PATH", "jobs_database.json")
-    cfg["state_file"] = os.environ.get("STATE_FILE", "telegram_bot_state.json")
+    cfg["db_path"] = str(resolve_file_path(os.environ.get("JOB_DB_PATH", "jobs_database.json")))
+    cfg["state_file"] = str(resolve_file_path(os.environ.get("STATE_FILE", "telegram_bot_state.json")))
     cfg["check_interval"] = max(1, get_int("CHECK_INTERVAL_MINUTES", 10))
     digest = os.environ.get("DIGEST_TIME", "08:00")
     try:
@@ -111,6 +114,11 @@ def resolve_config():
     return cfg
 
 
+def resolve_file_path(path):
+    p = Path(path)
+    return p if p.is_absolute() else APP_DIR / p
+
+
 def parse_date(value):
     if not value:
         return None
@@ -123,13 +131,24 @@ def parse_date(value):
     return None
 
 
-def load_jobs(path):
+def load_database(path):
     p = Path(path)
     if not p.exists():
         raise FileNotFoundError("Database not found: {}".format(p))
     with open(p, "r", encoding="utf-8") as f:
         data = json.load(f)
-    return data.get("jobs", [])
+    if not isinstance(data, dict) or not isinstance(data.get("jobs"), list):
+        raise ValueError("Database must be a JSON object containing a jobs list: {}".format(p))
+    return data
+
+
+def load_jobs(path):
+    return load_database(path)["jobs"]
+
+
+def job_fingerprint(job):
+    contents = json.dumps(job, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    return hashlib.sha256(contents.encode("utf-8")).hexdigest()
 
 
 def job_matches(job, cfg):
@@ -495,10 +514,27 @@ class JobState:
     def notified(self, jid):
         return str(jid) in self.data.get("notified", {})
 
+    def needs_notification(self, job):
+        notified = self.data.setdefault("notified", {})
+        jid = str(job.get("id"))
+        record = notified.get(jid)
+        if record is None:
+            return True
+
+        fingerprint = job_fingerprint(job)
+        if not isinstance(record, dict) or not record.get("fingerprint"):
+            if isinstance(record, dict) and record.get("name") == job.get("name"):
+                record["fingerprint"] = fingerprint
+                self.save()
+                return False
+            return True
+        return record["fingerprint"] != fingerprint
+
     def mark(self, job):
         self.data.setdefault("notified", {})[str(job.get("id"))] = {
             "name": job.get("name"),
             "sent_at": datetime.now().isoformat(timespec="seconds"),
+            "fingerprint": job_fingerprint(job),
         }
         self.save()
 
@@ -528,22 +564,38 @@ async def check_new_jobs(context):
     cfg = context.bot_data["config"]
     bot_state = context.bot_data["state"]
     try:
-        jobs = load_jobs(cfg["db_path"])
-    except Exception:
+        database = load_database(cfg["db_path"])
+        jobs = database["jobs"]
+    except (OSError, ValueError, json.JSONDecodeError):
         logging.exception("Database load failed")
-        return
+        return None
     matches = matching_jobs(jobs, cfg)
     pushed = 0
+    updated = 0
     for job in matches:
         jid = str(job.get("id"))
-        if bot_state.notified(jid):
+        was_notified = bot_state.notified(jid)
+        if not bot_state.needs_notification(job):
             continue
         sent = await send_to_all(context, job_card(job, cfg))
         if sent > 0:
             bot_state.mark(job)
-            pushed += 1
+            if was_notified:
+                updated += 1
+            else:
+                pushed += 1
     bot_state.prune(jobs)
-    logging.info("Check: %d matching jobs, %d new notifications pushed", len(matches), pushed)
+    logging.info(
+        "Check: %d jobs in database, %d matching, %d new and %d updated notifications pushed",
+        len(jobs), len(matches), pushed, updated,
+    )
+    return {
+        "last_updated": database.get("last_updated", "not set"),
+        "total": len(jobs),
+        "matching": len(matches),
+        "pushed": pushed,
+        "updated": updated,
+    }
 
 
 async def daily_digest(context):
@@ -778,8 +830,23 @@ async def cmd_refresh(update, context):
     if not is_authorized(update, cfg):
         await update.message.reply_text("Not authorized.")
         return
-    await check_new_jobs(context)
-    await update.message.reply_text("Checked for new matching jobs. New ones were pushed to the configured chat(s).")
+    result = await check_new_jobs(context)
+    if result is None:
+        await update.message.reply_text(
+            "Could not load the jobs database. Check Render logs and JOB_DB_PATH."
+        )
+        return
+    await update.message.reply_text(
+        "Database loaded: {} jobs (last updated: {}).\n"
+        "Matching your profile: {}.\n"
+        "Notifications sent: {} new, {} updated.".format(
+            result["total"],
+            result["last_updated"],
+            result["matching"],
+            result["pushed"],
+            result["updated"],
+        )
+    )
 
 
 async def cmd_status(update, context):
@@ -788,9 +855,23 @@ async def cmd_status(update, context):
         await update.message.reply_text("Not authorized.")
         return
     bot_state = context.bot_data["state"]
+    try:
+        database = load_database(cfg["db_path"])
+        jobs = database["jobs"]
+        data_status = "Database last updated: {} | {} total, {} matching".format(
+            database.get("last_updated", "not set"),
+            len(jobs),
+            len(matching_jobs(jobs, cfg)),
+        )
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        logging.exception("Could not load database for status")
+        data_status = "Database unavailable: {}".format(exc)
+    deploy_commit = os.environ.get("RENDER_GIT_COMMIT", "unknown")
     text = (
         "\U0001F527 Bot Status\n\n"
         "Database: {}\n"
+        "{}\n"
+        "Render commit: {}\n"
         "Configured chats: {}\n"
         "Check interval: every {} min\n"
         "Daily digest: {:02d}:{:02d}\n"
@@ -798,6 +879,8 @@ async def cmd_status(update, context):
         "Profile: B.E.-IT / Graduate, {}-{} years, no GATE\n"
         "Jobs already notified: {}".format(
             cfg["db_path"],
+            data_status,
+            deploy_commit[:12],
             cfg["chat_ids"] or "NONE - notifications disabled",
             cfg["check_interval"],
             cfg["digest_time"][0],
