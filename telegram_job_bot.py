@@ -10,6 +10,7 @@ import re
 import sys
 import threading
 import time
+import uuid
 from datetime import datetime, timedelta, time as dtime
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
@@ -128,6 +129,7 @@ def parse_date(value):
             return datetime.strptime(value, fmt)
         except ValueError:
             continue
+    logging.warning("Failed to parse date: %s", value)
     return None
 
 
@@ -144,6 +146,15 @@ def load_database(path):
 
 def load_jobs(path):
     return load_database(path)["jobs"]
+
+
+def save_database(path, jobs):
+    """Save jobs list back to database with timestamp."""
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump({
+            "jobs": jobs,
+            "last_updated": datetime.now().isoformat(timespec="seconds")
+        }, f, indent=2, ensure_ascii=False)
 
 
 def job_fingerprint(job):
@@ -191,7 +202,12 @@ def deadline_parts(job):
     if deadline:
         d = parse_date(deadline)
         if d:
-            days = (d - datetime.now()).days
+            now = datetime.now()
+            delta = d - now
+            # Calculate days, accounting for time of day
+            days = delta.days
+            if delta.total_seconds() < 0:
+                days = -1  # Already passed
             return deadline, days
         return deadline, None
     return job.get("deadline_info", "Not specified"), None
@@ -710,6 +726,40 @@ async def scrape_and_push(context, reply=None):
                 "sent_at": datetime.now().isoformat(timespec="seconds"),
             }
             bot_state.save()
+
+            # Persist scraped candidate to database
+            try:
+                jobs = load_jobs(cfg["db_path"])
+                new_job = {
+                    "id": str(uuid.uuid4()),
+                    "name": entry["title"],
+                    "organization": "Auto-discovered",
+                    "application_deadline": entry.get("deadline"),
+                    "notification_link": entry.get("href"),
+                    "salary": entry.get("details", {}).get("fee") or "Not specified",
+                    "application_fee": entry.get("details", {}).get("fee") or "Not specified",
+                    "requires_gate": False,
+                    "eligibility": {
+                        "qualification": "Graduate",
+                        "age": "{}-{} years".format(
+                            entry.get("details", {}).get("age_min") or "Not specified",
+                            entry.get("details", {}).get("age_max") or "Not specified"
+                        )
+                    },
+                    "eligibility_filters": {
+                        "gate_required": False,
+                        "max_qualification_level": "bachelor",
+                        "branches": cfg["user_branches"],
+                        "min_age": entry.get("details", {}).get("age_min"),
+                        "max_age": entry.get("details", {}).get("age_max")
+                    }
+                }
+                jobs.append(new_job)
+                save_database(cfg["db_path"], jobs)
+                logging.info("Persisted scraped candidate to database: %s", entry["title"])
+            except Exception as exc:
+                logging.warning("Failed to persist candidate %s: %s", entry["title"], exc)
+
             pushed += 1
     prune_scraped(bot_state)
     if reply:
