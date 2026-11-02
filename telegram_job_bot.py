@@ -190,6 +190,7 @@ def is_active(job):
     d = parse_date(deadline)
     if d:
         return d >= datetime.now()
+    # No parseable deadline - assume active but flag for review
     return True
 
 
@@ -248,6 +249,12 @@ def job_card(job, cfg):
             days_txt = "\u23F3 {} days remaining".format(days)
         else:
             days_txt = "\u2705 {} days to apply".format(days)
+
+    # Better formatting when deadline is vague
+    deadline_display = deadline
+    if deadline and days is None and deadline.lower() not in ["not specified", "none"]:
+        deadline_display = deadline.replace(" from notification", "")
+
     lines = [
         "\U0001F3AF {}".format(job.get("name", "Unknown Job")),
         "",
@@ -258,7 +265,7 @@ def job_card(job, cfg):
         "\u2022 Age: {}".format(age_text(job, cfg)),
         "\U0001F4B0 Salary: {}".format(job.get("salary", "Not specified")),
         "\U0001F9FE Fee: {}".format(job.get("application_fee", "Not specified")),
-        "\U0001F5D3 Deadline: {}{}".format(deadline, " ({})".format(days_txt) if days_txt else ""),
+        "\U0001F5D3 Deadline: {}{}".format(deadline_display, " ({})".format(days_txt) if days_txt else ""),
     ]
     pattern = job.get("exam_pattern")
     if pattern:
